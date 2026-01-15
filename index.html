@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>像素战痘记 v2.6 (计数日历版)</title>
+<style>
+    /* --- 核心样式变量 --- */
+    :root {
+        --bg: #FFF8E7;
+        --panel: #fff;
+        --border: #332211;
+        --shadow: rgba(0,0,0,0.1);
+        --font-stack: 'Courier New', Courier, monospace;
+    }
+
+    body {
+        background-color: var(--bg);
+        font-family: var(--font-stack);
+        margin: 0; padding: 10px 10px 30px 10px;
+        display: flex; flex-direction: column; align-items: center;
+        user-select: none; -webkit-user-select: none;
+        color: #443322;
+        min-height: 100vh;
+    }
+
+    /* --- 通用像素框 --- */
+    .pixel-box {
+        background: var(--panel);
+        border: 3px solid var(--border);
+        box-shadow: 4px 4px 0px var(--border);
+        padding: 12px; margin-bottom: 15px;
+        width: 100%; max-width: 350px;
+        box-sizing: border-box;
+    }
+
+    /* --- 视图切换 --- */
+    .view-section { display: none; width: 100%; flex-direction: column; align-items: center; }
+    .view-section.active { display: flex; }
+
+    /* --- 导航栏 --- */
+    .nav-bar {
+        display: flex; justify-content: space-between; align-items: center;
+        background: #FFECB3;
+    }
+    .nav-btn {
+        background: #fff; border: 2px solid var(--border);
+        padding: 5px 12px; cursor: pointer; font-weight: bold; font-family: inherit;
+        box-shadow: 2px 2px 0 var(--border); border-radius: 4px;
+    }
+    .nav-btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--border); }
+    .date-display { font-size: 1.1rem; font-weight: bold; }
+
+    /* --- 面部区域 --- */
+    .face-container {
+        position: relative; width: 280px; height: 300px;
+        margin: 0 auto 15px auto; cursor: crosshair;
+    }
+    .pixel-face {
+        width: 100%; height: 100%;
+        background: #FFE0BD;
+        border: 4px solid var(--border);
+        border-radius: 50px 50px 30px 30px;
+        box-shadow: 6px 6px 0 var(--border);
+        position: relative; overflow: hidden;
+    }
+    /* 五官 */
+    .hair-bangs { width: 100%; height: 75px; background: #3E2723; border-bottom: 4px solid var(--border); position: absolute; top: 0; left: 0; border-radius: 45px 45px 10px 10px; z-index: 5; }
+    .eye { width: 24px; height: 24px; background: var(--border); position: absolute; top: 115px; border-radius: 50%; }
+    .eye.l { left: 60px; } .eye.r { right: 60px; }
+    .eye::after { content:''; width:8px; height:8px; background:#fff; position:absolute; top:4px; left:4px; border-radius: 50%; }
+    .mouth { width: 40px; height: 12px; background: transparent; border-bottom: 4px solid var(--border); position: absolute; bottom: 70px; left: 50%; margin-left: -20px; border-radius: 50%; }
+    .blush { width: 35px; height: 15px; background: #FFAB91; opacity:0.6; position: absolute; top: 145px; border-radius: 50%; }
+    .blush.l { left: 35px; } .blush.r { right: 35px; }
+
+    /* --- 痘痘交互 --- */
+    .acne-dot {
+        width: 20px; height: 20px; position: absolute;
+        transform: translate(-50%, -50%);
+        border: 2px solid #5a0000; border-radius: 50%;
+        z-index: 10; cursor: pointer; transition: transform 0.1s;
+        box-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+    }
+    .acne-dot:active { transform: translate(-50%, -50%) scale(1.2); }
+    .acne-red { background: #FF4D4D; }
+    .acne-white { background: #fff; border-color: #cc0000; }
+    .acne-mark { background: #CE93D8; border-color: #6A1B9A; opacity: 0.9; }
+
+    /* --- 指南与统计 --- */
+    .instruction-panel h4 { margin: 0 0 10px 0; text-align: center; border-bottom: 2px dashed #ccc; padding-bottom: 5px; }
+    .lifecycle-steps { font-size: 0.85rem; display: flex; flex-direction: column; gap: 8px; }
+    .step-item { display: flex; align-items: center; }
+    .step-icon { font-size: 1.2rem; margin-right: 8px; }
+    
+    .stats-panel { font-size: 0.9rem; background: #EFEBE9; }
+    .stat-row { display: flex; justify-content: space-between; border-bottom: 1px solid #ddd; padding: 6px 0; }
+    .stat-row:last-child { border-bottom: none; }
+
+    /* --- 底部工具 --- */
+    .tools { display: flex; gap: 10px; margin-top: 5px; max-width: 350px; width: 100%; }
+    .tool-btn { flex: 1; padding: 12px; border: 3px solid var(--border); font-family: inherit; font-size: 0.9rem; font-weight: bold; cursor: pointer; border-radius: 8px; box-shadow: 3px 3px 0 var(--border); }
+    .tool-btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--border); }
+    .btn-cal { background: #BBDEFB; color: #0D47A1; }
+    .btn-save { background: #FFCDD2; color: #BF360C; }
+
+    /* --- 日历界面样式 (升级版) --- */
+    .calendar-container { width: 100%; max-width: 360px; }
+    .calendar-header {
+        text-align: center; margin-bottom: 15px; font-size: 1.2rem; font-weight: bold;
+        background: #fff; padding: 10px; border: 3px solid var(--border); box-shadow: 4px 4px 0 var(--border);
+    }
+    .year-grid {
+        display: flex; flex-direction: column; gap: 15px;
+        height: 70vh; overflow-y: auto; padding-right: 5px;
+    }
+    .month-card { background: #fff; border: 2px solid var(--border); padding: 10px; box-shadow: 2px 2px 0 rgba(0,0,0,0.1); }
+    .month-title { font-weight: bold; border-bottom: 2px dashed #ddd; margin-bottom: 5px; text-align: center; }
+    .days-grid {
+        display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center;
+    }
+    
+    /* 日历格子样式升级 */
+    .day-cell {
+        aspect-ratio: 1; display: flex; flex-direction: column; /* 纵向排列日期和数字 */
+        align-items: center; justify-content: center;
+        background: #f0f0f0; cursor: pointer; border-radius: 2px;
+        position: relative;
+    }
+    .day-cell.empty { background: transparent; cursor: default; }
+    
+    .day-num { font-size: 0.75rem; color: #555; } /* 日期数字 */
+    
+    /* 具体的痘痘个数标 */
+    .acne-count-tag {
+        font-size: 0.6rem; 
+        font-weight: bold;
+        background: rgba(255,255,255,0.6);
+        border: 1px solid rgba(0,0,0,0.1);
+        border-radius: 4px;
+        padding: 0 3px;
+        margin-top: 1px;
+        color: #000;
+        min-width: 10px;
+    }
+
+    /* 热力图颜色 */
+    .lvl-0 { background: #fff; }
+    .lvl-1 { background: #C8E6C9; border: 1px solid #81C784; } /* 绿 */
+    .lvl-2 { background: #FFE0B2; border: 1px solid #FFB74D; } /* 橙 */
+    .lvl-3 { background: #FFCDD2; border: 1px solid #E57373; } /* 红 */
+
+    .back-btn-wrapper { margin-top: 15px; width: 100%; }
+    .btn-back { width: 100%; background: #E0E0E0; }
+
+</style>
+</head>
+<body>
+
+    <div id="mainView" class="view-section active">
+        <div class="pixel-box nav-bar">
+            <button class="nav-btn" onclick="changeDate(-1)">◀ 前一天</button>
+            <div class="date-display" id="currentDate">LOADING...</div>
+            <button class="nav-btn" onclick="changeDate(1)">后一天 ▶</button>
+        </div>
+
+        <div class="face-container">
+            <div class="pixel-face" id="faceBoard">
+                <div class="hair-bangs"></div> <div class="eye l"></div><div class="eye r"></div>
+                <div class="blush l"></div><div class="blush r"></div> <div class="mouth"></div>
+            </div>
+        </div>
+
+        <div class="pixel-box instruction-panel" style="background: #E3F2FD;">
+            <h4>📖 战痘指南 (点击痘痘切换状态)</h4>
+            <div class="lifecycle-steps">
+                <div class="step-item"><span class="step-icon">👇 × 1</span> 🔴 红肿 (刚长出来)</div>
+                <div class="step-item"><span class="step-icon">👇 × 2</span> ⚪ 白头 (成熟了)</div>
+                <div class="step-item"><span class="step-icon">👇 × 3</span> 🟣 痘印 (愈合期)</div>
+                <div class="step-item"><span class="step-icon">👇 × 4</span> 🗑️ 删除 (彻底消失)</div>
+            </div>
+        </div>
+
+        <div class="pixel-box stats-panel">
+            <div id="statsContent"></div>
+        </div>
+
+        <div class="tools">
+            <button class="tool-btn btn-cal" onclick="showCalendar()">📅 查看年历</button>
+            <button class="tool-btn btn-save" onclick="clearData()">🗑️ 清空本日</button>
+        </div>
+    </div>
+
+    <div id="calendarView" class="view-section" style="display:none;">
+        <div class="calendar-container">
+            <div class="calendar-header" id="calYearTitle">战痘年历</div>
+            <div class="year-grid" id="yearGrid"></div>
+            <div class="back-btn-wrapper">
+                <button class="tool-btn btn-back" onclick="showMain()">🔙 返回记录界面</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const STORAGE_KEY = 'pixel_acne_v2';
+    let allData = {}; 
+    let currentDateStr = '';
+
+    function init() {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) { try { allData = JSON.parse(saved); } catch(e) { allData = {}; } }
+        setDate(new Date());
+    }
+
+    // --- 视图切换 ---
+    function showCalendar() {
+        document.getElementById('mainView').style.display = 'none';
+        document.getElementById('calendarView').style.display = 'flex';
+        renderCalendar();
+    }
+    function showMain() {
+        document.getElementById('calendarView').style.display = 'none';
+        document.getElementById('mainView').style.display = 'flex';
+        renderFace(); renderStats();
+    }
+
+    // --- 日期处理 ---
+    function setDate(dateObj) {
+        const y = dateObj.getFullYear();
+        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const d = String(dateObj.getDate()).padStart(2, '0');
+        currentDateStr = `${y}-${m}-${d}`;
+        document.getElementById('currentDate').innerText = currentDateStr;
+        renderFace(); renderStats();
+    }
+    function changeDate(delta) {
+        const parts = currentDateStr.split('-');
+        const current = new Date(parts[0], parts[1]-1, parts[2]);
+        current.setDate(current.getDate() + delta);
+        setDate(current);
+    }
+
+    // --- 面部逻辑 ---
+    function renderFace() {
+        document.querySelectorAll('.acne-dot').forEach(el => el.remove());
+        const list = allData[currentDateStr] || [];
+        const face = document.getElementById('faceBoard');
+        list.forEach((pt, idx) => {
+            const dot = document.createElement('div');
+            let cls = 'acne-red';
+            if(pt.state===1) cls='acne-white';
+            if(pt.state===2) cls='acne-mark';
+            dot.className = `acne-dot ${cls}`;
+            dot.style.left = pt.x + '%'; dot.style.top = pt.y + '%';
+            dot.onclick = (e) => { e.stopPropagation(); cyclePoint(idx); };
+            face.appendChild(dot);
+        });
+    }
+
+    document.getElementById('faceBoard').onclick = function(e) {
+        if(e.target.className.includes('acne-dot')) return;
+        const r = this.getBoundingClientRect();
+        const x = (e.clientX - r.left)/r.width*100;
+        const y = (e.clientY - r.top)/r.height*100;
+        if(x<0||x>100||y<0||y>100) return;
+        
+        let z = '面中';
+        if(y<35) z='额头'; else if(y>80) z='下巴';
+        else if(x<35) z='右脸'; else if(x>65) z='左脸';
+        else if(y>60) z='嘴周'; else z='鼻子';
+
+        if(!allData[currentDateStr]) allData[currentDateStr]=[];
+        allData[currentDateStr].push({x,y,zone:z,state:0});
+        save(); renderFace(); renderStats();
+    };
+
+    function cyclePoint(idx) {
+        const list = allData[currentDateStr];
+        list[idx].state++;
+        if(list[idx].state > 2) list.splice(idx,1);
+        save(); renderFace(); renderStats();
+    }
+
+    function renderStats() {
+        const list = allData[currentDateStr] || [];
+        const zones = {};
+        list.forEach(p => zones[p.zone]=(zones[p.zone]||0)+1);
+        let maxZ='无', maxV=0;
+        for(let z in zones) if(zones[z]>maxV){ maxV=zones[z]; maxZ=z; }
+        document.getElementById('statsContent').innerHTML = `
+            <div class="stat-row"><span>📅 今日总数</span><b>${list.length} 颗</b></div>
+            <div class="stat-row"><span>⚠️ 重灾区</span><b>${maxZ} (${maxV})</b></div>
+        `;
+    }
+    
+    function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(allData)); }
+    function clearData() { if(confirm('清空今日?')) { allData[currentDateStr]=[]; save(); renderFace(); renderStats(); } }
+
+    // --- 日历逻辑 (含计数) ---
+    function renderCalendar() {
+        const grid = document.getElementById('yearGrid');
+        grid.innerHTML = '';
+        const year = parseInt(currentDateStr.split('-')[0]) || new Date().getFullYear();
+        document.getElementById('calYearTitle').innerText = `${year}年 战痘年历`;
+        const months = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
+
+        months.forEach((mName, idx) => {
+            const mCard = document.createElement('div');
+            mCard.className = 'month-card';
+            mCard.innerHTML = `<div class="month-title">${mName}</div>`;
+            const dGrid = document.createElement('div');
+            dGrid.className = 'days-grid';
+
+            const firstDay = new Date(year, idx, 1).getDay();
+            const totalDays = new Date(year, idx+1, 0).getDate();
+
+            for(let i=0; i<firstDay; i++) {
+                dGrid.appendChild(Object.assign(document.createElement('div'), {className:'day-cell empty'}));
+            }
+
+            for(let d=1; d<=totalDays; d++) {
+                const dateKey = `${year}-${String(idx+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                const count = allData[dateKey] ? allData[dateKey].length : 0;
+                
+                const cell = document.createElement('div');
+                let lvl = 'lvl-0';
+                if(count>0 && count<=2) lvl='lvl-1';
+                else if(count>2 && count<=5) lvl='lvl-2';
+                else if(count>5) lvl='lvl-3';
+
+                cell.className = `day-cell ${lvl}`;
+                
+                // --- 这里是修改的核心：显示日期和具体的数量 ---
+                let html = `<span class="day-num">${d}</span>`;
+                if(count > 0) {
+                    html += `<span class="acne-count-tag">${count}</span>`;
+                }
+                cell.innerHTML = html;
+
+                cell.onclick = () => {
+                    currentDateStr = dateKey;
+                    document.getElementById('currentDate').innerText = currentDateStr;
+                    showMain();
+                };
+                dGrid.appendChild(cell);
+            }
+            mCard.appendChild(dGrid);
+            grid.appendChild(mCard);
+        });
+    }
+
+    init();
+</script>
+</body>
+</html>
